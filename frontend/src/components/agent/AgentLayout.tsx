@@ -74,7 +74,7 @@ function AgentHeader({ meta, rawOpen, onToggleRaw }: AgentHeaderProps) {
 
       <div className="agent-header-right">
         <a
-          href="https://github.com/nageoffer/ragent"
+          href="https://github.com/Yuming-chen321/ragent-labs"
           target="_blank"
           rel="noreferrer"
           className="agent-head-btn"

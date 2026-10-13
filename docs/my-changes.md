@@ -48,6 +48,19 @@
 - **代价（明确接受）**：丧失 Broker 侧回滚与事务回查；若落库后发送失败，清理任务需人工或定时任务补做。删除知识库场景发送失败会记录 error 日志（DB 已软删，资源清理可补偿）。
 - **后续计划**：恢复事务消息。**优先方案已变更** —— 不再是「手工注册 `TransactionListener`」，而是先同步上游 `b0f27491` 的修复并回归验证；仅当验证仍失败时，才考虑绕过 starter 自动配置手工注册。
 
+## 5. 仓库链接指向本仓库 + 清理上游作者残留路径
+
+- **动机**：这是本仓库自己的部署实例，「打开 GitHub 仓库」按钮与星标数应当指向/反映**本仓库**，而不是上游；同时清掉上游作者遗留的本机绝对路径。
+- **改动**：
+  - `frontend/src/components/layout/Header.tsx`、`frontend/src/components/agent/AgentLayout.tsx`、`frontend/src/pages/admin/AdminLayout.tsx`：GitHub 入口由上游仓库改指本仓库；
+  - `frontend/src/hooks/useGitHubStars.ts`：星标数据源由上游仓库改指本仓库（部署实例应展示自身数据）；
+  - `frontend/TESTING.md`：删除上游作者本机绝对路径 `/Users/machen/workspace/nageoffer/ragent/frontend`，改为相对路径；
+  - `README.md` 顶部声明补充本仓库地址，并注明下方徽章 / Star History / 贡献者名单均为**上游仓库**数据。
+- **刻意不做的**：
+  - **不改 `groupId` / 包名**（`com.nageoffer.ai`）。它是坐标不是链接，改动会制造数千文件级噪声 diff，且无实际收益；
+  - **不删 README 里的上游徽章与 Star 曲线**。它们是上游的署名与项目背景，删除反而像在抹除来源；改为明确标注归属。
+- **保留（合规要求）**：原 `LICENSE`、各文件头部版权声明、README 中的上游仓库链接。
+
 ---
 
 ## 后续改造计划

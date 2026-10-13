@@ -711,7 +711,7 @@ export function AdminLayout() {
                 返回聊天
               </Button>
               <a
-                href="https://github.com/nageoffer/ragent"
+                href="https://github.com/Yuming-chen321/ragent-labs"
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"

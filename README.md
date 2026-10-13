@@ -1,10 +1,13 @@
 > ## 关于本仓库
 >
+> 本仓库：<https://github.com/Yuming-chen321/ragent-labs>
+>
 > 本项目基于开源项目 [nageoffer/ragent](https://github.com/nageoffer/ragent)（Apache-2.0）进行**工程实践与二次开发**，上游代码版权归原作者所有，本仓库保留原 [LICENSE](LICENSE) 与版权声明。
 >
 > - 我对上游代码的改动与新增：见 [docs/my-changes.md](docs/my-changes.md)
 > - 一条命令查看我的全部改动提交：`git log upstream-snapshot..main --oneline`
 >   （`upstream-snapshot` 标签打在我导入时的上游快照上；上游此后已继续演进，故不用 `upstream/main` 做对比基准）
+> - ⚠️ 下方所有徽章（stars / forks / contributors）、Star History 曲线与贡献者名单均为**上游仓库**的统计数据，与本仓库无关。
 
 <p align="center">
   <a href="https://github.com/nageoffer/ragent">

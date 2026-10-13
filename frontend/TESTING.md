@@ -33,7 +33,7 @@ curl http://localhost:8080/api/ragent/knowledge-base
 
 #### 2. 重启前端开发服务器
 ```bash
-cd /Users/machen/workspace/nageoffer/ragent/frontend
+cd frontend
 
 # 停止旧的服务器（如果有）
 pkill -f "vite"

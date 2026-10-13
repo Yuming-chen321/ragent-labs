@@ -1,6 +1,8 @@
 import * as React from "react";
 
-const REPOSITORY_API_URL = "https://api.github.com/repos/nageoffer/ragent";
+// 指向本仓库：此部署实例的 GitHub 入口与星标数应展示本仓库自身数据，
+// 而非上游 nageoffer/ragent 的统计（上游信息见 README 顶部声明）。
+const REPOSITORY_API_URL = "https://api.github.com/repos/Yuming-chen321/ragent-labs";
 const STAR_CACHE_KEY = "ragent.github-stars";
 const LEGACY_STAR_CACHE_KEY = "ragent.agent.github-stars";
 const STAR_CACHE_TTL = 3 * 60 * 60 * 1000;
