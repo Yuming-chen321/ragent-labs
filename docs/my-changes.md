@@ -156,6 +156,68 @@
 
 ---
 
+# 二次开发（本仓库）
+
+## 9. 向量维度三源一致性启动校验（fail-fast）— 本仓库
+
+- **新增**：`rag/src/main/java/com/nageoffer/ai/ragent/rag/config/VectorDimensionGuard.java`
+  （db 侧配置 `VectorDimensionCheckProperties`，配置前缀 `rag.vector.dimension-check`）
+- **动机**：向量维度同时被三处约束，任一处漂移都**不会在写入时立刻报错**，而是以
+  「检索结果莫名其妙变差」这种**无异常**的方式表现出来，事后极难定位。既有的
+  `ChunkEmbeddingService` 只在**入库时逐条**校验模型输出维度，属于「已经进到流水线里才发现」；
+  维度冲突应当在**任何一次入库之前**就被拦下。
+- **三源**：
+  | 源 | 取值方式 | 漂移后果 |
+  |---|---|---|
+  | 配置 | `rag.default.dimension` | 向量化请求与落点判定都取自这里 |
+  | 物理列 | `t_knowledge_vector.embedding` 的声明宽度 | 由建表语句决定，应用改不动，写入时列宽不符即失败 |
+  | 模型实测输出 | 真实调用一次默认嵌入模型量出向量长度 | 配置写对不代表模型照做，部分提供商忽略请求里的 `dimensions` 参数 |
+- **实现要点**：
+  - 维度读取走 `format_type(a.atttypid, a.atttypmod)`：`information_schema` 对 `vector` 类型只给出
+    `USER-DEFINED`，**看不到维度**；`atttypmod` 也无 `varchar`/`numeric` 那种 `+4` 偏移
+    （实测 `vector(1536)` → `atttypmod` 就是 `1536`）。
+  - 列类型若为**未声明宽度**的 `vector`（无 typmod），直接判失败：这种列会静默接受任意长度向量，
+    维度漂移永远不会在写入时暴露。
+  - 探测**显式指定模型**（`ai.embedding.default-model`），不走候选降级：降级到另一个模型会把
+    「目标模型输出错维度」掩盖成「恰好能用」。
+- **失败策略分两档**（这是本改动最需要解释的一个决定）：
+  - **维度不一致 → 启动失败**。属于配置错误，必须挡在启动期。
+  - **模型探测失败（网络 / 鉴权）→ 默认只告警放行**（`fail-on-probe-error: false`）。
+    把一次远端不可达放大成整个应用起不来，是拿可用性换一致性，代价不对等；需要强一致时置 `true`。
+- **代价**：启动多一次约 0.5s 的嵌入调用（`probe-model: false` 可关）。
+- **验证**：单元测试 11 个用例；真实启动三态实测（见验证 4 / 5 / 6）。
+
+## 10. 合并重复的 HNSW 向量索引 — 本仓库
+
+- **改动**：`rag/src/main/java/com/nageoffer/ai/ragent/rag/core/vector/PgVectorStoreAdmin.java`
+  + 清理脚本 `resources/database/upgrades/v1.1.0/261013_drop_duplicate_hnsw_index.sql`
+- **缺陷**：库中同时存在两个**定义完全相同**的 HNSW 索引
+  （`idx_kv_embedding` 由建表脚本建、`idx_kv_embedding_hnsw` 由本类建）。
+  根因是 `ensureVectorSpace()` 的判存语句：
+  ```java
+  SELECT COUNT(*) FROM pg_indexes WHERE indexname = 'idx_kv_embedding_hnsw'
+  ```
+  只认**自己起的名字**，于是在「已经由 DDL 建过索引」的库上又建了一个。
+- **触发路径**：`ensureVectorSpace()` 有四个调用点，其中 `KnowledgeBaseServiceImpl` 在**创建知识库**时无条件调用
+  —— 这就是重复索引的实际产生时刻。（`VectorSpaceInitializer` 因 `vectorSpaceExists()` 对已有表恒为 true，
+  反而走不到这一步，所以此前没人注意到。）
+- **代价**：双份索引存储、双倍写入放大（每次 INSERT 维护两棵 HNSW 图）；查询优化器在两者间任选，
+  排查索引相关问题时极易误判「改的索引没生效」。
+- **修复**：
+  - 判存改为按「**表 + 列 + 访问方法**」枚举等价索引（join `pg_index` / `pg_am` / `pg_attribute`，
+    条件为 `amname='hnsw'`、`indnkeyatts=1`、`indisvalid`），名字不再参与判断：
+    只要该列上已有任一 HNSW 索引就复用，不再重复建。
+  - 新增 `@PostConstruct reportRedundantHnswIndexes()` 启动自检：存量库不会再去建知识库，
+    等不到 `ensureVectorSpace()` 被调用，必须主动把冗余索引暴露出来并给出清理脚本路径。
+  - 清理脚本按同一判据实时枚举，**保留按名排序的第一个**（通常即建表脚本的 `idx_kv_embedding`），
+    删除其余等价索引；幂等，无重复时执行结果为空。
+  - 顺手删除类内未被真正使用的 `dimension` 变量与 `RAGDefaultProperties` 依赖
+    （原代码把它打进了「创建 HNSW 索引」的日志里，而 `CREATE INDEX ... USING hnsw` 根本不接受维度参数，
+    这行日志会误导人以为索引是按该维度建的）。
+- **归属**：**本仓库**发现并修复。
+
+---
+
 # 验证记录
 
 ## 验证 1：`-XX:-UseContainerSupport` 是否能绕过 cgroup v2 的 NPE
@@ -217,13 +279,112 @@ JAVA_HOME=<jdk17> ./mvnw -pl framework test -Dtest=DelegatingTransactionListener
 
 结论：端到端链路恢复，`RUNNING → SUCCESS` 正常流转。
 
+## 验证 4：向量维度校验单元测试
+
+```bash
+JAVA_HOME=<jdk17> ./mvnw -pl rag test -Dtest=VectorDimensionGuardTest
+```
+
+实测输出（2026-10-13 14:23）：
+
+```
+[INFO] Running com.nageoffer.ai.ragent.rag.config.VectorDimensionGuardTest
+[INFO] Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.116 s
+[INFO] BUILD SUCCESS
+```
+
+11 个用例覆盖：三源一致放行 / 配置与列不符 / 模型输出与配置不符 / 列未声明宽度 /
+表或列不存在 / 模型探测失败可放行且可切换为失败 / 开关关闭 / 未配默认模型 /
+未配维度 / 关掉探测后不再发远端调用 / 模型返回空向量。
+
+## 验证 5：真实启动的三源校验与冗余索引自检
+
+正常配置启动（2026-10-13 14:25，清理索引**之前**）：
+
+```
+14:25:36.821 WARN  PgVectorStoreAdmin : 向量列上存在 2 个等价 HNSW 索引
+                                       [idx_kv_embedding, idx_kv_embedding_hnsw]：查询结果不受影响，
+                                       但会占用双份存储并放大写入开销。请执行
+                                       resources/database/upgrades/v1.1.0/261013_drop_duplicate_hnsw_index.sql 清理
+14:25:41.132 INFO  VectorDimensionGuard : 向量维度校验通过：配置=1536 / 列=1536 / 模型实测=1536
+14:25:48.816 INFO  RagentApplication    : Started RagentApplication in 25.882 seconds
+```
+
+`模型实测=1536` 是真实调用 `text-embedding-v4` 量出来的结果（同批日志可见
+`bailian embedding 完成 - 模型：text-embedding-v4，条数：1，耗时：475ms`），不是读配置得来的。
+
+执行清理脚本：
+
+```
+NOTICE:  已保留 idx_kv_embedding，删除重复索引 {idx_kv_embedding_hnsw}
+DO
+```
+
+清理后该表索引由 5 个降为 4 个，HNSW 索引只剩 1 个。再次启动（14:28）时
+**冗余索引告警消失**，维度校验依旧通过：
+
+```
+14:28:02.812 INFO  VectorDimensionGuard : 向量维度校验通过：配置=1536 / 列=1536 / 模型实测=1536
+14:28:09.903 INFO  RagentApplication    : Started RagentApplication in 26.295 seconds
+```
+
+## 验证 6：维度不一致时启动被拦下（fail-fast 实测）
+
+只改配置、不动代码，用命令行参数把维度配成与物理列不符：
+
+```bash
+java -jar bootstrap/target/bootstrap-0.0.1-SNAPSHOT.jar --server.port=9090 --rag.default.dimension=1024
+```
+
+实测输出（2026-10-13 14:27，进程退出码 **1**）：
+
+```
+14:27:18.205 WARN  ConfigServletWebServerApplicationContext : Exception encountered during context initialization
+                   - cancelling refresh attempt: BeanCreationException: Error creating bean with name
+                   'vectorDimensionGuard': Invocation of init method failed
+14:27:20.186 ERROR SpringApplication : Application run failed
+Caused by: ServiceException{code='B000001',message='向量维度不一致：配置 rag.default.dimension=1024，
+           但 t_knowledge_vector.embedding 的声明宽度为 1536 维。二者必须一致——
+           请改配置对齐物理列，或按目标维度重建向量表（列宽无法在线修改）'}
+```
+
+对比：修复前这一错误要到**文档入库、向量写库**时才以
+`expected 1536 dimensions, not 1024` 抛出（本机 9 月 9 日 14:22 的历史日志），
+此时前面的解析、分块、向量化算力已经白花，且如果只写了一半就中断还会留下脏数据。
+现在错误被提前到启动期，且报错同时给出**两个具体值**与两条可选处置路径。
+
+## 验证 7：新代码下的入库链路回归
+
+在清理索引后的实例上重新触发文档 `2097567527151439872` 分块（2026-10-13 14:28）：
+
+| 时间 | 环节 |
+|---|---|
+| 14:28:46.997 | 生产者：`SEND_OK` / `COMMIT_MESSAGE` |
+| 14:28:47.065 | 消费者：开始消费（**距发送 68 ms**） |
+| 14:29:53.239 | 摄取-解析完成，blocks=65（MinerU 本轮较慢） |
+| 14:29:53.863 | embedding 完成 9 条 / 619 ms |
+| 14:29:54.192 | 向量批量写入 PostgreSQL count=9 |
+| 14:29:54.195 | 块索引写入完成，块数=9 |
+
+结果：`t_knowledge_document.status='success'`、`chunk_count=9`、
+`t_knowledge_document_chunk_log` 新增一条 `success / 9 块 / total_duration=67107`；
+`mqadmin consumerProgress` 的 `Consume Diff Total = 0`。
+说明索引判存改造与新增的启动校验均未影响入库链路。
+
 ---
 
 # 后续改造计划
 
 | 项 | 状态 | 说明 |
 |---|---|---|
-| 向量维度三源一致性启动校验（配置 / pgvector 列 / 模型实测输出） | 计划中 | 维度漂移曾导致嵌入阶段失败，现把校验提前到启动期 fail-fast |
-| 合并重复 HNSW 索引 | 计划中 | 库中存在两个定义相同的 HNSW 索引（一个由 DDL 建、一个由 `PgVectorStoreAdmin.ensureVectorSpace()` 启动时建），因后者只按自身索引名判存在性 |
+| 向量维度三源一致性启动校验（配置 / pgvector 列 / 模型实测输出） | **已完成** | 见第 9 节；`VectorDimensionGuard`，不一致启动失败（`B000001`），模型不可达默认仅告警 |
+| 合并重复 HNSW 索引 | **已完成** | 见第 10 节；判存改按「表 + 列 + 访问方法」，存量库由 `261013_drop_duplicate_hnsw_index.sql` 清理 |
+| 清理 `PgVectorStoreAdmin` 未使用变量 | **已完成** | 随第 10 节一并删除 `dimension` 变量与 `RAGDefaultProperties` 依赖 |
 | 检索评估集 + Recall@K / MRR 消融 | 计划中 | 在既有 `/rag/eval` 接口上补 gold set 与指标，锁定 `RetrievalBudget` 三段预算做控制变量 |
-| 清理 `PgVectorStoreAdmin` 未使用变量 | 计划中 | 类内 `dimension` 变量未参与校验逻辑 |
+
+# 已知未跟进项
+
+| 项 | 说明 |
+|---|---|
+| 维度校验对**知识库级**嵌入模型的覆盖 | 启动校验只探测部署级默认模型（`ai.embedding.default-model`）。知识库可在 L2 单独指定 `embedding_model`，这类覆盖由 `ChunkEmbeddingService` 在入库时逐条校验兜底，属于「运行期」而非「启动期」。若要一并前置，需要遍历所有知识库配置并在启动期逐个探测，代价是与知识库数量成正比的启动耗时 |
+| `vector(1536)` 列宽的在线变更 | 目前只能重建表，校验失败时的提示语已说明这一点 |
