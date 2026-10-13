@@ -160,14 +160,15 @@
 
 ## 验证 1：`-XX:-UseContainerSupport` 是否能绕过 cgroup v2 的 NPE
 
-在 `rmqbroker` 容器内用镜像自带 JDK 8u372 运行探针程序（`ManagementFactory.getOperatingSystemMXBean()`）：
+在 `rmqbroker` 容器内用镜像自带 JDK 8u372 运行探针程序
+（`resources/docker/OsMxBeanProbe.java`，调用 `ManagementFactory.getOperatingSystemMXBean()`）：
 
 | 启动参数 | 结果 |
 |---|---|
 | 默认 | `RESULT=FAIL java.lang.NullPointerException`，栈顶即 `CgroupV2Subsystem.getInstance` |
 | `-XX:-UseContainerSupport` | `RESULT=OK totalPhysicalMemory=8181673984` |
 
-结论：开关有效，采用。
+结论：开关有效，采用。复现命令见该探针文件的类注释。
 
 ## 验证 2：`DelegatingTransactionListener` 回归测试
 
