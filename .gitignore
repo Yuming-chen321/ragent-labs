@@ -47,3 +47,9 @@ resources/docker/graphrag/.env
 ### Tmp Out ###
 .output/
 docs/temp
+
+### Local Secrets (never commit) ###
+application-secret.yaml
+**/application-secret.yaml
+.env
+*.local.yaml
