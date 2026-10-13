@@ -1,3 +1,10 @@
+> ## 关于本仓库
+>
+> 本项目基于开源项目 [nageoffer/ragent](https://github.com/nageoffer/ragent)（Apache-2.0）进行**工程实践与二次开发**，上游代码版权归原作者所有，本仓库保留原 [LICENSE](LICENSE) 与版权声明。
+>
+> - 我对上游代码的改动与新增：见 [docs/my-changes.md](docs/my-changes.md)
+> - 一条命令查看我的全部提交：`git log upstream/main..main --oneline`（需先 `git remote add upstream https://github.com/nageoffer/ragent.git && git fetch upstream`）
+
 <p align="center">
   <a href="https://github.com/nageoffer/ragent">
     <picture>
