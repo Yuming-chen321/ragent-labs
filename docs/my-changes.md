@@ -1,6 +1,9 @@
 # 我的改动清单（相对上游 nageoffer/ragent）
 
-> 查看命令：`git log upstream/main..main --oneline`（先 `git remote add upstream https://github.com/nageoffer/ragent.git && git fetch upstream`）
+> 查看命令：`git log upstream-snapshot..main --oneline` 与 `git diff --stat upstream-snapshot..main`
+>
+> `upstream-snapshot` 标签打在导入时的上游快照上（`08c77d0`），对应上游 commit `62a81a58c3b8b44ad1501ef70d9b70f2b9480ef4`。
+> 上游在此之后已继续演进（>70 个提交），因此**不要**用 `upstream/main` 作为对比基准，否则会把上游的新工作算进本次改动。
 >
 > 上游基线：`62a81a58c3b8b44ad1501ef70d9b70f2b9480ef4`（Apache-2.0，版权与 LICENSE 保留）
 
@@ -29,11 +32,21 @@
 
 ## 4. 事务消息替换为本地事务 + 同步消息（中间方案）
 
+> **2026-10-13 复查修正**：下面「自动注册失败」这一根因判断**证据不足，需重新验证**。
+> 复查发现：上游在同一依赖版本组合下**至今仍在使用事务消息**，并在 `b0f27491`（2026-09-13，
+> 即我导入快照后 4 天）修掉了 `DelegatingTransactionListener.checkLocalTransaction` 中的一处缺陷 ——
+> 回查时把 Broker 传来的 `byte[]` 直接强转为 `MessageWrapper<?>`，抛 `ClassCastException`，
+> 被 catch 后返回 `UNKNOWN`，导致**半消息始终不被提交**。
+> 这与我观察到的现象（消息在 Broker、消费端从未拉取、文档永久 `RUNNING`）高度吻合，
+> 而「监听器未注册」通常会在**发送阶段**直接报错，而非表现为消息静默不可见。
+> 待验证动作：cherry-pick `b0f27491` → 恢复事务消息 → 回归验证回查链路。
+> 结论以验证结果为准，未验证前不得写成定论。
+
 - **现象**：同上，文档卡在 `RUNNING`。
-- **根因**：Spring Boot 4.1.0 + rocketmq-spring-boot-starter 2.3.6 下 `@RocketMQTransactionListener` 自动注册失败，half 消息无人回查、永远不提交。
+- **当时的根因判断（待修正）**：Spring Boot 4.1.0 + rocketmq-spring-boot-starter 2.3.6 下 `@RocketMQTransactionListener` 自动注册失败，half 消息无人回查、永远不提交。
 - **改动**：`KnowledgeBaseServiceImpl` / `KnowledgeDocumentServiceImpl` 中，把「事务消息 + 本地事务回调」改为「本地事务先落库 + 普通同步消息通知消费者」。
 - **代价（明确接受）**：丧失 Broker 侧回滚与事务回查；若落库后发送失败，清理任务需人工或定时任务补做。删除知识库场景发送失败会记录 error 日志（DB 已软删，资源清理可补偿）。
-- **后续计划**：恢复事务消息 —— 绕过 starter 自动配置，手工构造 `DefaultMQProducer` 并显式注册 `TransactionListener`，保留回查能力。
+- **后续计划**：恢复事务消息。**优先方案已变更** —— 不再是「手工注册 `TransactionListener`」，而是先同步上游 `b0f27491` 的修复并回归验证；仅当验证仍失败时，才考虑绕过 starter 自动配置手工注册。
 
 ---
 
