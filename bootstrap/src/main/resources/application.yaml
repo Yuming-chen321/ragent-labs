@@ -79,6 +79,10 @@ rag:
 
   vector:
     type: pg  # 可选 milvus / pg
+    dimension-check:
+      enabled: true               # 启动期校验「配置维度 / 向量列声明宽度 / 模型实测输出维度」三者一致，不一致直接启动失败
+      probe-model: true           # 是否真实调用一次默认嵌入模型量出实际输出维度（多一次远端调用）
+      fail-on-probe-error: false  # 模型不可达时是否也判定启动失败；默认仅告警，不把远端抖动放大成起不来
 
   keyword:
     type: none  # 可选 none / es
