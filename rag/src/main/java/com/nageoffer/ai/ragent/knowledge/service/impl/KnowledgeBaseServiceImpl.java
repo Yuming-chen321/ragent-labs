@@ -248,20 +248,22 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
                 .operator(operator)
                 .build();
 
-        // 事务消息：本地事务软删知识库，提交后由消费者异步回收底层物理资源（Milvus collection / bucket / 残留向量）
-        messageQueueProducer.sendInTransaction(
-                cleanupTopic,
-                kbId,
-                "知识库删除清理",
-                event,
-                arg -> {
-                    kbDO.setUpdatedBy(operator);
-                    int rows = knowledgeBaseMapper.deleteById(kbDO);
-                    if (rows == 0) {
-                        throw new ClientException("知识库不存在或已删除");
-                    }
-                }
-        );
+        // 先执行本地删除，再发送普通同步消息通知消费者清理底层物理资源
+        // 原本使用 RocketMQ 事务消息，但 Spring Boot 4 + rocketmq-spring-boot-starter 2.3.6 不兼容，
+        // 导致 half 消息无法到达 Broker，消费者永远收不到清理任务
+        kbDO.setUpdatedBy(operator);
+        int rows = knowledgeBaseMapper.deleteById(kbDO);
+        if (rows == 0) {
+            throw new ClientException("知识库不存在或已删除");
+        }
+
+        try {
+            log.info("发送知识库删除清理MQ消息，topic={}, kbId={}", cleanupTopic, kbId);
+            messageQueueProducer.send(cleanupTopic, kbId, "知识库删除清理", event);
+        } catch (Exception e) {
+            // 普通消息发送失败不回滚数据库删除——资源清理可以手动或由定时任务补做
+            log.error("发送知识库删除清理MQ消息失败（已软删DB记录），kbId={}", kbId, e);
+        }
         bizChangeLogContext.put(kbId, before, null);
     }
 

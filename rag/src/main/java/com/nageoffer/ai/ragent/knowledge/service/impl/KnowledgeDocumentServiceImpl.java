@@ -40,10 +40,10 @@ import com.nageoffer.ai.ragent.core.ingest.IngestionSpec;
 import com.nageoffer.ai.ragent.core.ingest.VectorTarget;
 import com.nageoffer.ai.ragent.core.ingest.sink.ChunkIndexWriter;
 import com.nageoffer.ai.ragent.core.parser.registry.ParserRegistry;
+import com.nageoffer.ai.ragent.framework.context.LoginUser;
 import com.nageoffer.ai.ragent.framework.context.UserContext;
 import com.nageoffer.ai.ragent.framework.exception.ClientException;
 import com.nageoffer.ai.ragent.framework.exception.ServiceException;
-import com.nageoffer.ai.ragent.framework.mq.producer.MessageQueueProducer;
 import com.nageoffer.ai.ragent.ingestion.dao.entity.IngestionPipelineDO;
 import com.nageoffer.ai.ragent.ingestion.dao.mapper.IngestionPipelineMapper;
 import com.nageoffer.ai.ragent.ingestion.domain.context.IngestionContext;
@@ -69,7 +69,6 @@ import com.nageoffer.ai.ragent.knowledge.enums.DocumentStatus;
 import com.nageoffer.ai.ragent.knowledge.enums.ProcessMode;
 import com.nageoffer.ai.ragent.knowledge.enums.SourceType;
 import com.nageoffer.ai.ragent.knowledge.handler.RemoteFileFetcher;
-import com.nageoffer.ai.ragent.knowledge.mq.event.KnowledgeDocumentChunkEvent;
 import com.nageoffer.ai.ragent.knowledge.schedule.CronScheduleHelper;
 import com.nageoffer.ai.ragent.knowledge.service.KnowledgeChunkService;
 import com.nageoffer.ai.ragent.knowledge.service.KnowledgeDocumentScheduleService;
@@ -83,7 +82,6 @@ import com.nageoffer.ai.ragent.rag.service.FileStorageService;
 import com.nageoffer.ai.ragent.rag.util.DisplayType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionOperations;
@@ -122,14 +120,10 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
     private final KnowledgeDocumentChunkLogMapper chunkLogMapper;
     private final KnowledgeChunkMapper chunkMapper;
     private final TransactionOperations transactionOperations;
-    private final MessageQueueProducer messageQueueProducer;
     private final KnowledgeScheduleProperties scheduleProperties;
     private final RemoteFileFetcher remoteFileFetcher;
     private final VectorTargetResolver vectorTargetResolver;
     private final BizChangeLogContext bizChangeLogContext;
-
-    @Value("knowledge-document-chunk_topic${unique-name:}")
-    private String chunkTopic;
 
     @Override
     @LogRecord(
@@ -199,36 +193,45 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
         Assert.notNull(beforeDO, () -> new ClientException("文档不存在"));
         bizChangeLogContext.putName(beforeDO.getDocName());
         KnowledgeDocumentDO before = BeanUtil.copyProperties(beforeDO, KnowledgeDocumentDO.class);
-        KnowledgeDocumentChunkEvent event = KnowledgeDocumentChunkEvent.builder()
-                .docId(docId)
-                .operator(UserContext.getUsername())
-                .build();
 
-        messageQueueProducer.sendInTransaction(
-                chunkTopic,
-                docId,
-                "文档分块",
-                event,
-                arg -> {
-                    // Wrapper 更新不触发 updateTime 自动填充, 显式刷新, 使卡死恢复以分块开始时刻为基准
-                    int updated = documentMapper.update(
-                            new LambdaUpdateWrapper<KnowledgeDocumentDO>()
-                                    .set(KnowledgeDocumentDO::getStatus, DocumentStatus.RUNNING.getCode())
-                                    .set(KnowledgeDocumentDO::getUpdatedBy, event.getOperator())
-                                    .set(KnowledgeDocumentDO::getUpdateTime, new Date())
-                                    .eq(KnowledgeDocumentDO::getId, docId)
-                                    .ne(KnowledgeDocumentDO::getStatus, DocumentStatus.RUNNING.getCode())
-                    );
-                    if (updated == 0) {
-                        KnowledgeDocumentDO documentDO = documentMapper.selectById(docId);
-                        Assert.notNull(documentDO, () -> new ClientException("文档不存在"));
-                        throw new ClientException("文档分块操作正在进行中，请稍后再试");
-                    }
-                    KnowledgeDocumentDO documentDO = documentMapper.selectById(docId);
-                    event.setKbId(documentDO.getKbId());
-                    scheduleService.upsertSchedule(documentDO);
-                }
-        );
+        // 在本地事务中更新文档状态为 RUNNING
+        transactionOperations.executeWithoutResult(status -> {
+            int updated = documentMapper.update(
+                    new LambdaUpdateWrapper<KnowledgeDocumentDO>()
+                            .set(KnowledgeDocumentDO::getStatus, DocumentStatus.RUNNING.getCode())
+                            .set(KnowledgeDocumentDO::getUpdatedBy, UserContext.getUsername())
+                            .set(KnowledgeDocumentDO::getUpdateTime, new Date())
+                            .eq(KnowledgeDocumentDO::getId, docId)
+                            .ne(KnowledgeDocumentDO::getStatus, DocumentStatus.RUNNING.getCode())
+            );
+            if (updated == 0) {
+                throw new ClientException("文档分块操作正在进行中，请稍后再试");
+            }
+        });
+
+        // 重新查询以获取最新信息
+        KnowledgeDocumentDO documentDO = documentMapper.selectById(docId);
+
+        // 同步更新定时调度（URL 类型文档才会继续往下，FILE 类型直接 return）
+        scheduleService.upsertSchedule(documentDO);
+
+        // 直接在后台线程执行分块任务，绕过 RocketMQ
+        // 背景：Spring Boot 4 + rocketmq-spring-boot-starter 2.3.6 下消息虽返回 SEND_OK
+        // 但消费者未被触发，疑似 RocketMQ Clustering 消费时序/版本兼容问题
+        // 这里直接用 JVM 线程异步执行，保证功能可用
+        String username = UserContext.getUsername();
+        log.info("启动分块后台线程执行，docId={}", docId);
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                UserContext.set(LoginUser.builder().username(username).build());
+                executeChunk(docId);
+            } catch (Exception e) {
+                log.error("分块后台线程执行异常，docId={}", docId, e);
+            } finally {
+                UserContext.clear();
+            }
+        });
+
         bizChangeLogContext.put(docId, before, documentMapper.selectById(docId));
     }
 
