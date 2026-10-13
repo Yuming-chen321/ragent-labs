@@ -30,7 +30,10 @@ services:
       - "8082:8082"                              # ← dashboard 端口也从这里暴露
     environment:
       NAMESRV_ADDR: "rmqnamesrv:9876"
-      JAVA_OPT_EXT: "-Xms512m -Xmx512m"
+      # -XX:-UseContainerSupport：绕开 JDK 8u372(Temurin) 在 Docker Desktop(cgroup v2)
+      # 下 CgroupV2Subsystem.getInstance 的 NPE。该异常会毒化 org.apache.rocketmq.store.StoreUtil
+      # 的静态初始化，导致 broker 所有消息读取失败（消费者拉不到消息）。
+      JAVA_OPT_EXT: "-Xms512m -Xmx512m -XX:-UseContainerSupport"
     depends_on:
       rmqnamesrv:
         condition: service_healthy
