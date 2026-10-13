@@ -1,0 +1,40 @@
+# Elasticsearch 单节点编排
+#
+# 用途：关键词检索通道（rag.keyword.type=es）的前置依赖。项目支持该通道但上游未提供编排文件，
+#       本文件补齐这一块，使「向量 / 关键词」双通道与 RRF 融合可在本地完整验证。
+#
+# 与检索配置的对应关系：
+#   rag.keyword.es.uris     → http://127.0.0.1:9200
+#   rag.keyword.es.index    → rag_keyword_store（应用启动时自动创建）
+#   rag.keyword.es.analyzer → 默认 ik_max_word，需安装 IK 分词插件；未装插件时用内置 standard
+#
+# 关于分词器：ik_max_word 需要与 ES 版本严格对应的 IK 插件，插件发布常滞后于 ES 主版本。
+# 本编排不预装插件，因此 application.yaml 的 analyzer 需配成内置的 standard，否则建索引会因
+# 未知分词器失败。standard 对中文按单字切分，召回尚可但精度低于 IK——这是不装插件的既定代价。
+#
+# 无数据卷：与 rmqbroker 一致，容器重建即清空索引。评测与演示需要的是「可复现的确定状态」，
+# 索引内容由文档重新分块重建，不做持久化。
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.4.2
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.transport.ssl.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - TZ=Asia/Shanghai
+    ports:
+      - "9200:9200"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s

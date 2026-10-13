@@ -1,0 +1,7 @@
+# 由环境推导出来的中间产物，不入库：
+#   chunks_export.jsonl  从当前库导出的分块清单（chunk id 是雪花 id，换环境即变）
+#   goldset.resolved.jsonl  解析后的标注（含真实 chunk id）
+# 需要复现时按 README 重新导出 + 重跑 resolve_goldset.py 即可。
+# results/ 下的评测结果是测量产出的证据，予以入库。
+chunks_export.jsonl
+goldset.resolved.jsonl

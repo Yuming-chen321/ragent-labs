@@ -1,0 +1,32 @@
+{"qid":"Q001","category":"条款单跳","question":"年假当年没休完最多能结转几天？最晚什么时候必须休完？","reference_chunks":[{"doc":"人事制度","index":7}],"expect_keywords":["结转 5 天","6 月 30 日"]}
+{"qid":"Q002","category":"条款单跳","question":"公司配发的笔记本电脑服役年限是几年？满几年可以申请换新？","reference_chunks":[{"doc":"IT资产管理","index":1},{"doc":"IT资产管理","index":4}],"expect_keywords":["4 年"]}
+{"qid":"Q003","category":"数值表格","question":"公司配发的台式机和显示器分别服役几年？","reference_chunks":[{"doc":"IT资产管理","index":1}],"expect_keywords":["台式机","显示器"]}
+{"qid":"Q004","category":"条款单跳","question":"试用期转正需要准备哪些材料？","reference_chunks":[{"doc":"人事制度","index":3},{"doc":"人事制度","index":8}],"expect_keywords":["试用期工作总结"]}
+{"qid":"Q005","category":"条款单跳","question":"加班需要事先审批吗？如果来不及事前审批怎么办？","reference_chunks":[{"doc":"公司规章制度","index":1}],"expect_keywords":["直属经理"]}
+{"qid":"Q006","category":"条款单跳","question":"在职期间可以做兼职或副业吗？公司是怎么规定的？","reference_chunks":[{"doc":"公司规章制度","index":3}],"expect_keywords":["副业"]}
+{"qid":"Q007","category":"条款单跳","question":"OA 系统的数据分级是怎么划分的？L1 到 L4 分别是什么？","reference_chunks":[{"doc":"OA系统数据安全规范文档","index":1}],"expect_keywords":["L1"]}
+{"qid":"Q008","category":"条款单跳","question":"导出高敏数据需要满足什么条件？导出文件有哪些管控要求？","reference_chunks":[{"doc":"OA系统数据安全规范文档","index":4}],"expect_keywords":["一次一签"]}
+{"qid":"Q009","category":"条款单跳","question":"敏感字段用什么加密算法存储？密钥怎么管理？","reference_chunks":[{"doc":"OA系统数据安全规范文档","index":2}],"expect_keywords":["AES-256"]}
+{"qid":"Q010","category":"数值表格","question":"保险系统的 RPO 和 RTO 分别是什么含义？故障时最多丢多少数据、多久要恢复？","reference_chunks":[{"doc":"互联网保险系统数据安全规范","index":5}],"expect_keywords":["RPO","RTO"]}
+{"qid":"Q011","category":"条款单跳","question":"理赔病历影像被批量下载了，应该怎么处置？","reference_chunks":[{"doc":"互联网保险系统数据安全规范","index":7}],"expect_keywords":["影像"]}
+{"qid":"Q012","category":"条款单跳","question":"VPN 连接超时或握手失败该怎么排查？","reference_chunks":[{"doc":"IT支持","index":4}],"expect_keywords":["VPN"]}
+{"qid":"Q013","category":"条款单跳","question":"账号被锁定了怎么办？","reference_chunks":[{"doc":"IT支持","index":2}],"expect_keywords":["解锁"]}
+{"qid":"Q014","category":"条款单跳","question":"Windows 电脑怎么添加和连接打印机？","reference_chunks":[{"doc":"IT支持","index":6}],"expect_keywords":["打印机"]}
+{"qid":"Q015","category":"条款单跳","question":"申请共享邮箱需要满足什么条件？","reference_chunks":[{"doc":"IT支持","index":5}],"expect_keywords":["共享邮箱"]}
+{"qid":"Q016","category":"数值表格","question":"IT 工单提交后多久没定位出来会升级到二线团队？","reference_chunks":[{"doc":"IT支持","index":10}],"expect_keywords":["15 分钟"]}
+{"qid":"Q017","category":"条款单跳","question":"公司电脑硬件故障、无法开机怎么报修？","reference_chunks":[{"doc":"IT资产管理","index":2}],"expect_keywords":["报修"]}
+{"qid":"Q018","category":"多跳实体","question":"员工离职时名下资产怎么处理？需要归还哪些东西？","reference_chunks":[{"doc":"IT资产管理","index":3}],"expect_keywords":["归还"]}
+{"qid":"Q019","category":"数值表格","question":"社招候选人从首轮面试到发 Offer 一般需要多长时间？","reference_chunks":[{"doc":"招聘信息","index":4}],"expect_keywords":["7"]}
+{"qid":"Q020","category":"条款单跳","question":"校园招聘的完整流程顺序是什么？","reference_chunks":[{"doc":"招聘信息","index":2}],"expect_keywords":["校园招聘"]}
+{"qid":"Q021","category":"数值表格","question":"新员工报到前 D-3 个工作日，IT 和 HR 需要完成什么？","reference_chunks":[{"doc":"招聘信息","index":5}],"expect_keywords":["D-3"]}
+{"qid":"Q022","category":"条款单跳","question":"新员工报到当天需要携带哪些材料？","reference_chunks":[{"doc":"招聘信息","index":3}],"expect_keywords":["报到"]}
+{"qid":"Q023","category":"条款单跳","question":"年度调薪的流程是怎么走的？","reference_chunks":[{"doc":"薪资与福利政策","index":1}],"expect_keywords":["调薪"]}
+{"qid":"Q024","category":"条款单跳","question":"对发到手的工资有疑问，怎么核对和申诉？","reference_chunks":[{"doc":"薪资与福利政策","index":2}],"expect_keywords":["异议"]}
+{"qid":"Q025","category":"数值表格","question":"快手科技的开票抬头和纳税人识别号是什么？","reference_chunks":[{"doc":"开票信息","index":1}],"expect_keywords":["快手"]}
+{"qid":"Q026","category":"条款单跳","question":"同一个品牌下面有总公司和分公司，怎么判断该用哪个开票主体？","reference_chunks":[{"doc":"开票信息","index":0}],"expect_keywords":["开票主体"]}
+{"qid":"Q027","category":"条款单跳","question":"部门的培训需求是什么时候收集的？收集之后怎么往下走？","reference_chunks":[{"doc":"员工培训","index":1}],"expect_keywords":["培训需求"]}
+{"qid":"Q028","category":"条款单跳","question":"管理发展通道的晋升是以什么为前提的？","reference_chunks":[{"doc":"员工培训","index":2}],"expect_keywords":["管理通道"]}
+{"qid":"Q029","category":"条款单跳","question":"业务系统权限应该通过什么入口申请？可以找工程师私下开通吗？","reference_chunks":[{"doc":"IT支持","index":9}],"expect_keywords":["权限申请"]}
+{"qid":"Q030","category":"条款单跳","question":"公司怀疑员工违纪时，调查处理流程是什么样的？","reference_chunks":[{"doc":"公司规章制度","index":2}],"expect_keywords":["违纪"]}
+{"qid":"Q031","category":"多跳实体","question":"下周有一名 Java 工程师入职，为了让他当天拿到电脑、完成培训，IT 和 HR 最晚什么时候要做什么？","reference_chunks":[{"doc":"招聘信息","index":5},{"doc":"招聘信息","index":6},{"doc":"员工培训","index":0}],"expect_keywords":["电脑"],"chunk_keywords":{"招聘信息#5":["电脑"],"招聘信息#6":["Java"],"员工培训#0":["培训"]}}
+{"qid":"Q032","category":"多跳实体","question":"已转正员工离职，从提交申请到最后一天要完成哪些人事、资产和账号权限动作？","reference_chunks":[{"doc":"IT资产管理","index":3},{"doc":"IT支持","index":5}],"expect_keywords":["离职"],"chunk_keywords":{"IT资产管理#3":["归还"],"IT支持#5":["回收"]}}

@@ -85,12 +85,14 @@ rag:
       fail-on-probe-error: false  # 模型不可达时是否也判定启动失败；默认仅告警，不把远端抖动放大成起不来
 
   keyword:
-    type: none  # 可选 none / es
+    type: es  # 可选 none / es（es 需 resources/docker/elasticsearch-stack-9.4.2.compose.yaml 起容器）
     es:
       uris: http://127.0.0.1:9200
       index: rag_keyword_store  # 全库共享索引，按 collection_name 字段区分知识库
-      analyzer: ik_max_word
-      search-analyzer: ik_smart
+      # 分词器：ik_max_word / ik_smart 需安装与 ES 版本严格对应的 IK 插件；本部署未装插件，
+      # 用内置 standard（中文按单字切分，召回可用、精度低于 IK）。装插件后改回 ik_max_word / ik_smart
+      analyzer: standard
+      search-analyzer: standard
 
   graph:
     type: none  # 图谱后端总开关，可选 none / lightrag。lightrag 即接入后端供「后台可视化 / 检索读取」；是否参与检索、是否写入分别由 rag.search.channels.graph.enabled 与下方 ingestion.enabled 独立控制

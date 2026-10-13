@@ -47,6 +47,8 @@ resources/docker/graphrag/.env
 ### Tmp Out ###
 .output/
 docs/temp
+# 只忽略仓库根目录的 lock 文件（误由根目录 npm 命令产生）；frontend/ 下有自己需要入库的 lock
+/package-lock.json
 
 ### Local Secrets (never commit) ###
 application-secret.yaml

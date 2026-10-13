@@ -1,2 +1,15 @@
 /mvnw text eol=lf
 *.cmd text eol=crlf
+
+# 初始化器模板强制 LF：resources/initializer/enterprise-knowledge-base/checksums.sha256
+# 是按 LF 内容算出来的，检出若转成 CRLF，预检会以「文件 checksum 不一致」必然失败——
+# 这是 Windows 检出下跑数据初始化的第一道坎，用属性锁死而不是每次手动 dos2unix。
+/resources/initializer/**/*.md text eol=lf
+/resources/initializer/**/*.sql text eol=lf
+/resources/initializer/**/*.properties text eol=lf
+/resources/initializer/**/*.txt text eol=lf
+/resources/initializer/**/*.sha256 text eol=lf
+
+# 评测套件按 LF 入库：gold set 与脚本一旦被检出成 CRLF，在 Linux 上会产生整文件级
+# diff，把「真的改了标注」淹没在行尾噪声里。结果里的 JSON 同理。
+/resources/eval/** text eol=lf
